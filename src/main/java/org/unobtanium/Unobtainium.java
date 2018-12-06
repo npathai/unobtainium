@@ -29,8 +29,7 @@ public class Unobtainium extends Runner {
   private List<FrameworkStep> frameworkSteps;
   private List<TestStep> steps;
   private Context scenarioContext;
-  // FIXME move global context out of Unobtainium as it will be called for each scenario, need to create custom Runner
-  private Context globalContext = new Context();
+  private Context globalContext;
   private Map<String, FrameworkStep> stepNameToFrameworkStep;
   private List<FrameworkStep> beforeScenarioSteps;
   private List<TestStep> beforeScenarios;
@@ -41,6 +40,10 @@ public class Unobtainium extends Runner {
     this.beforeScenarios = new ArrayList<>();
     this.scenarioContext = new Context();
     createTestInstance();
+  }
+
+  public void setGlobalContext(Context globalContext) {
+    this.globalContext = globalContext;
   }
 
   private void createTestInstance() throws Throwable {
@@ -65,16 +68,6 @@ public class Unobtainium extends Runner {
         .map(method -> new FrameworkStep(method.getMethod(), method.getAnnotation(BeforeScenario.class).name()))
         .sorted(Comparator.comparing(method -> method.getAnnotation(BeforeScenario.class).name()))
         .collect(Collectors.toList());
-
-    for (FrameworkStep beforeScenarioStep : beforeScenarioSteps) {
-      TestStep step = createStep(beforeScenarioStep);
-      this.beforeScenarios.add(step);
-    }
-
-    for (FrameworkStep frameworkStep : frameworkSteps) {
-      TestStep step = createStep(frameworkStep);
-      this.steps.add(step);
-    }
 
     createStepDescriptions();
   }
@@ -117,6 +110,20 @@ public class Unobtainium extends Runner {
 
   @Override
   public void run(RunNotifier notifier) {
+    try {
+      for (FrameworkStep beforeScenarioStep : beforeScenarioSteps) {
+        TestStep step = createStep(beforeScenarioStep);
+        this.beforeScenarios.add(step);
+      }
+
+      for (FrameworkStep frameworkStep : frameworkSteps) {
+        TestStep step = createStep(frameworkStep);
+        this.steps.add(step);
+      }
+    } catch (Throwable ex) {
+      throw new AssertionError(ex);
+    }
+
     notifier.fireTestSuiteStarted(getDescription());
     runBeforeScenarios();
     for (TestStep step: steps) {
